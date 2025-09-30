@@ -60,4 +60,4 @@ clean: ## Limpia artefactos creados
 	@rm -rf $(OUT_DIR) $(DIST_DIR)
 
 help: ## Mostrar ayuda
-	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':|##' '{printf "  %-12s %s\n", $$1, $$3}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*## ' Makefile | sort | awk -F':' '{split($$0, a, "## "); printf "\033[36m%-15s\033[0m %s\n", $$1, a[2]}'
