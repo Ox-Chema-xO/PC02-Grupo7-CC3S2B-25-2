@@ -176,3 +176,6 @@ export MIN_COMMIT_MESSAGE_LENGTH="10"                          # Opcional
 - [x] Sistema de logging estructurado.
 - [x] Manejo robusto de errores con trap handlers.
 - [x] Generación de reportes de auditoría.
+
+## Videos de sprints
+- **Sprint 1**: https://drive.google.com/file/d/1fqYnsCZnfsgDeEsjv6wa4pGi-QOg0N5b/view?usp=sharing
