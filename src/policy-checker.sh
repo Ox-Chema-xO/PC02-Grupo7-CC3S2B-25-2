@@ -53,17 +53,16 @@ main() {
         log "ADVERTENCIA: Hook pre-commit no encontrado o no ejecutable"
     fi
 
-    # TODO: Implementar por otros miembros del equipo
     # Ejecutar hook commit-msg
-    # if [[ -x "$PROJECT_ROOT/git-hooks/commit-msg" ]]; then
-    #     log "Ejecutando verificaciones commit-msg..."
-    #     if ! "$PROJECT_ROOT/git-hooks/commit-msg"; then
-    #         log "Verificaciones commit-msg encontraron violaciones"
-    #         exit_code=1
-    #     fi
-    # else
-    #     log "ADVERTENCIA: Hook commit-msg no encontrado o no ejecutable"
-    # fi
+    if [[ -x "$PROJECT_ROOT/git-hooks/commit-msg" ]]; then
+        log "Ejecutando verificaciones commit-msg..."
+        if ! "$PROJECT_ROOT/git-hooks/commit-msg"; then
+            log "Verificaciones commit-msg encontraron violaciones"
+            exit_code=1
+        fi
+    else
+        log "ADVERTENCIA: Hook commit-msg no encontrado o no ejecutable"
+    fi
 
     # Ejecutar pre-receive simulado
     if [[ -x "$PROJECT_ROOT/git-hooks/pre-receive-sim" ]]; then
