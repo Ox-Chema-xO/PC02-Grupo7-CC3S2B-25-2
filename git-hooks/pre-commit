@@ -1,0 +1,123 @@
+#!/bin/bash
+set -euo pipefail
+
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+log() {
+    echo "[pre-commit] $*" >&2
+}
+
+# Hardcodear de forma temporal un repo local para prueba
+export WORKING_REPO="${WORKING_REPO:-$HOME/Desktop/Computer-Science/DS/CC3S2_25-2_personal}"
+
+# Verificar archivos temporales
+check_temporary_files() {
+    log "Verificando archivos temporales en commits..."
+
+    local violations=()
+    local commits_file="$PROJECT_ROOT/out/raw/commits.csv"
+    local temp_patterns=('\.tmp$' '\.log$' '\.swp$' '\.bak$' '~$' '^#.*#$')
+
+    [[ -f "$commits_file" ]] || { log "commits.csv no encontrado"; return 0; }
+
+    # Analizar commits
+    while IFS='|' read -r hash author email date message; do
+        [[ -n "$hash" ]] || continue
+
+        # Obtener archivos del commit
+        local files=$(git -C "$WORKING_REPO" diff-tree --no-commit-id --name-only -r "$hash" 2>/dev/null || echo "")
+
+        for file in $files; do
+            for pattern in "${temp_patterns[@]}"; do
+                if [[ "$file" =~ $pattern ]]; then
+                    violations+=("Commit $hash: archivo temporal '$file' (msg: '$message')")
+                fi
+            done
+        done
+    done < "$commits_file"
+
+    # Reportar
+    if [[ ${#violations[@]} -gt 0 ]]; then
+        printf '%s\n' "${violations[@]}" > "$PROJECT_ROOT/out/reports/precommit-violations.txt"
+        log "Encontradas ${#violations[@]} violaciones"
+        return 1
+    fi
+
+    return 0
+}
+
+# Verificar shebangs en scripts
+check_script_shebangs() {
+    log "Verificando shebangs..."
+
+    local violations=()
+
+    # Buscar scripts en commits recientes
+    while IFS='|' read -r hash _; do
+        [[ -n "$hash" ]] || continue
+
+        local sh_files=$(git -C "$WORKING_REPO" diff-tree --no-commit-id --name-only -r "$hash" | grep '\.sh$' || true)
+
+        for script in $sh_files; do
+            if git -C "$WORKING_REPO" show "$hash:$script" 2>/dev/null | head -n1 | grep -qv '^#!/'; then
+                violations+=("Commit $hash: script sin shebang '$script'")
+            fi
+        done
+    done < "$PROJECT_ROOT/out/raw/commits.csv"
+
+    [[ ${#violations[@]} -eq 0 ]] && return 0
+
+    printf '%s\n' "${violations[@]}" >> "$PROJECT_ROOT/out/reports/precommit-violations.txt"
+    log "Encontradas ${#violations[@]} violaciones de shebang"
+    return 1
+}
+
+# Verificar sintaxis bash
+check_bash_syntax() {
+    log "Verificando sintaxis bash..."
+
+    local violations=()
+
+    # Analizar scripts actuales
+    while IFS= read -r script; do
+        [[ -n "$script" ]] || continue
+
+        if ! git -C "$WORKING_REPO" show "HEAD:$script" 2>/dev/null | bash -n 2>/dev/null; then
+            violations+=("Error sintaxis en '$script' (HEAD)")
+        fi
+    done < <(git -C "$WORKING_REPO" ls-tree -r HEAD --name-only | grep '\.sh$' || true)
+
+    [[ ${#violations[@]} -eq 0 ]] && return 0
+
+    printf '%s\n' "${violations[@]}" >> "$PROJECT_ROOT/out/reports/precommit-violations.txt"
+    log "Encontrados ${#violations[@]} errores de sintaxis"
+    return 1
+}
+
+main() {
+    log "Auditando políticas pre-commit en: $WORKING_REPO"
+
+    mkdir -p "$PROJECT_ROOT/out/reports"
+
+    {
+        echo "# Violaciones pre-commit detectadas retrospectivamente"
+        echo "# Repositorio auditado: $WORKING_REPO"
+        echo "# Fecha: $(date)"
+        echo ""
+    } > "$PROJECT_ROOT/out/reports/precommit-violations.txt"
+
+    local exit_code=0
+
+    check_temporary_files || exit_code=1
+    check_script_shebangs || exit_code=1
+    check_bash_syntax || exit_code=1
+
+    [[ $exit_code -eq 0 ]] && log "Sin violaciones" || log "Violaciones encontradas"
+
+    return $exit_code
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
