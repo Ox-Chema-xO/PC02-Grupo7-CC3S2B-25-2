@@ -1,0 +1,196 @@
+#!/bin/bash
+set -euo pipefail
+
+# Hook commit-msg - Verificador de mensajes de commits para repositorios auditados
+# Este script NO se ejecuta en el repositorio auditor
+# Analiza mensajes de commits del repositorio auditado para detectar violaciones
+
+readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+source "$PROJECT_ROOT/src/utils.sh"
+
+if [[ -f "$PROJECT_ROOT/.env" ]]; then
+    source "$PROJECT_ROOT/.env"
+fi
+
+# Validar longitud del mensaje
+check_message_length() {
+    local message="$1"
+    local commit_hash="$2"
+    local violations=()
+
+    local min_length=${MIN_COMMIT_LENGTH:-10}
+    local max_length=${MAX_COMMIT_LENGTH:-72}
+
+    # Verificar longitud mínima
+    if [[ ${#message} -lt $min_length ]]; then
+        violations+=("Mensaje muy corto en commit $commit_hash: '$message' (${#message} chars, mín: $min_length)")
+    fi
+
+    # Verificar longitud máxima
+    if [[ ${#message} -gt $max_length ]]; then
+        violations+=("Mensaje muy largo en commit $commit_hash: '$message' (${#message} chars, máx: $max_length)")
+    fi
+
+    printf '%s\n' "${violations[@]}"
+}
+
+# Verificar patrones prohibidos (mensajes genéricos)
+check_forbidden_patterns() {
+    local message="$1"
+    local commit_hash="$2"
+    local violations=()
+
+    # Mensajes genéricos prohibidos (case insensitive)
+    local forbidden_patterns=(
+        "^update$"
+        "^fix$"
+        "^wip$"
+        "^cambios$"
+        "^test$"
+        "^tmp$"
+        "^merge"
+        "^resolved conflicts"
+    )
+
+    for pattern in "${forbidden_patterns[@]}"; do
+        if [[ "$message" =~ $pattern ]] || [[ "${message,,}" =~ $pattern ]]; then
+            violations+=("Mensaje genérico prohibido en commit $commit_hash: '$message' (patrón: '$pattern')")
+        fi
+    done
+
+    printf '%s\n' "${violations[@]}"
+}
+
+# Verificar prefijos válidos para este proyecto
+check_valid_prefixes() {
+    local message="$1"
+    local commit_hash="$2"
+    local violations=()
+
+    # Prefijos válidos según el PDF
+    local valid_prefixes=(
+        "Agregar"
+        "Implementar"
+        "Configurar"
+        "Corregir"
+        "Actualizar"
+        "Eliminar"
+        "Refactorizar"
+        "Documentar"
+        "Optimizar"
+        "Integrar"
+        "Validar"
+        "Auditar"
+        # También aceptar conventional commits
+        "feat:"
+        "fix:"
+        "docs:"
+        "style:"
+        "refactor:"
+        "test:"
+        "chore:"
+    )
+
+    local has_valid_prefix=false
+    for prefix in "${valid_prefixes[@]}"; do
+        if [[ "$message" =~ ^{$prefix}[[:space:]] ]] || [[ "$message" =~ ^$prefix ]]; then
+            has_valid_prefix=true
+            break
+        fi
+    done
+
+    if [[ "$has_valid_prefix" == "false" ]]; then
+        violations+=("Mensaje sin prefijo válido en commit $commit_hash: '$message'")
+        violations+=("  Prefijos válidos: ${valid_prefixes[*]}")
+    fi
+
+    printf '%s\n' "${violations[@]}"
+}
+
+# Función principal de verificación
+verify_commit_messages() {
+    log "Verificando mensajes de commits..."
+
+    local commits_file="$PROJECT_ROOT/out/raw/commits.csv"
+    local violations=()
+    local commits_checked=0
+    local max_commits=${AUDIT_COMMIT_LIMIT:-100}
+
+    if [[ ! -f "$commits_file" ]]; then
+        log "No se encontró archivo de commits para verificar"
+        return 0
+    fi
+
+    # Analizar cada commit
+    while IFS='|' read -r hash author email date message && [[ $commits_checked -lt $max_commits ]]; do
+        [[ -n "$hash" ]] || continue
+
+        commits_checked=$((commits_checked + 1))
+
+        # Verificar que el mensaje no esté vacío
+        if [[ -z "$message" ]] || [[ "$message" =~ ^[[:space:]]*$ ]]; then
+            violations+=("Mensaje de commit vacío en $hash")
+            continue
+        fi
+
+        # Ejecutar todas las verificaciones
+        local length_violations
+        length_violations=$(check_message_length "$message" "$hash")
+        [[ -n "$length_violations" ]] && violations+=("$length_violations")
+
+        local forbidden_violations
+        forbidden_violations=$(check_forbidden_patterns "$message" "$hash")
+        [[ -n "$forbidden_violations" ]] && violations+=("$forbidden_violations")
+
+        local prefix_violations
+        prefix_violations=$(check_valid_prefixes "$message" "$hash")
+        [[ -n "$prefix_violations" ]] && violations+=("$prefix_violations")
+
+    done < "$commits_file"
+
+    log "Verificados $commits_checked commits"
+
+    # Reportar violaciones
+    if [[ ${#violations[@]} -gt 0 ]]; then
+        {
+            echo "# Violaciones detectadas por verificador commit-msg"
+            echo "# Fecha: $(date)"
+            echo ""
+            printf '%s\n' "${violations[@]}"
+        } > "$PROJECT_ROOT/out/reports/commit-msg-violations.txt"
+
+        log "Encontradas ${#violations[@]} violaciones de mensajes de commit"
+        return 1
+    else
+        touch "$PROJECT_ROOT/out/reports/commit-msg-violations.txt"
+        log "No se encontraron violaciones de mensajes de commit"
+        return 0
+    fi
+}
+
+# Función principal
+main() {
+    log "Ejecutando verificaciones commit-msg en repositorio auditado..."
+
+    # Crear directorio de reportes si no existe
+    mkdir -p "$PROJECT_ROOT/out/reports"
+
+    local exit_code=0
+
+    # Ejecutar verificación
+    verify_commit_messages || exit_code=1
+
+    if [[ $exit_code -eq 0 ]]; then
+        log "Todas las verificaciones commit-msg completadas exitosamente"
+    else
+        log "Se encontraron violaciones de políticas de mensajes de commit"
+    fi
+
+    return $exit_code
+}
+
+# Ejecutar si se invoca directamente
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
