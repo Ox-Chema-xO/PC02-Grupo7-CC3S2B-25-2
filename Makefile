@@ -28,8 +28,10 @@ build: tools ## Construcción de artefactos
 	@chmod +x $(SRC_SCRIPTS) src/script_principal.sh 2>/dev/null || true
 
 test: build ## Ejecución de pruebas
+	@cp .env .env.backup
 	@echo "Ejecutando suite de pruebas..."
-	@bats $(TESTS_SCRIPTS)
+	@trap 'mv .env.backup .env' EXIT; \
+	bats $(TESTS_SCRIPTS)
 
 run: build ## Ejecución del scaneo a repositorio
 	@$(SRC_DIR)/script_principal.sh
