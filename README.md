@@ -334,3 +334,4 @@ Implementar **validación de políticas mediante Git hooks** con verificaciones 
 
 ## Videos de sprints
 - **Sprint 1**: https://drive.google.com/file/d/1fqYnsCZnfsgDeEsjv6wa4pGi-QOg0N5b/view?usp=sharing
+- **Sprint 2**: https://drive.google.com/file/d/1Zcv8O-uDKIOaHMF2lkUxyB15OZWzdv-E/view?usp=sharing
