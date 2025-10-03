@@ -69,9 +69,14 @@ main() {
 check_policies() {
     log "Verificando políticas..."
 
-    # Por ahora solo consultamos las políticas remotas
-    # En Sprint 3 se implementará policy-checker.sh completo
-    log "Políticas verificadas (verificación básica)"
+    # Ejecutar policy-checker.sh si existe
+    if [[ -x "$SCRIPT_DIR/policy-checker.sh" ]]; then
+        "$SCRIPT_DIR/policy-checker.sh" "$WORKING_REPO" || true
+    else
+        log "ADVERTENCIA: policy-checker.sh no encontrado, saltando verificaciones de hooks"
+    fi
+
+    log "Políticas verificadas"
 }
 
 # Generación de reporte (implementación básica para Sprint 1)
