@@ -65,17 +65,16 @@ main() {
     #     log "ADVERTENCIA: Hook commit-msg no encontrado o no ejecutable"
     # fi
 
-    # TODO: Implementar por otros miembros del equipo
     # Ejecutar pre-receive simulado
-    # if [[ -x "$PROJECT_ROOT/git-hooks/pre-receive-sim" ]]; then
-    #     log "Ejecutando verificaciones pre-receive..."
-    #     if ! "$PROJECT_ROOT/git-hooks/pre-receive-sim"; then
-    #         log "Verificaciones pre-receive encontraron violaciones"
-    #         exit_code=1
-    #     fi
-    # else
-    #     log "ADVERTENCIA: Hook pre-receive-sim no encontrado o no ejecutable"
-    # fi
+    if [[ -x "$PROJECT_ROOT/git-hooks/pre-receive-sim" ]]; then
+        log "Ejecutando verificaciones pre-receive..."
+        if ! "$PROJECT_ROOT/git-hooks/pre-receive-sim"; then
+            log "Verificaciones pre-receive encontraron violaciones"
+            exit_code=1
+        fi
+    else
+        log "ADVERTENCIA: Hook pre-receive-sim no encontrado o no ejecutable"
+    fi
 
     if [[ $exit_code -eq 0 ]]; then
         log "Todas las políticas verificadas exitosamente"

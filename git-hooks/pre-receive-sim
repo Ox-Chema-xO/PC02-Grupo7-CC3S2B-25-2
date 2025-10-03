@@ -1,0 +1,223 @@
+#!/bin/bash
+set -euo pipefail
+
+# Hook pre-receive simulado - Verificador de políticas del servidor
+# Simula validaciones que un servidor Git haría antes de aceptar un push
+# Analiza el repositorio auditado para detectar violaciones que el servidor rechazaría
+
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+log() {
+    echo "[pre-receive] $*" >&2
+}
+
+# Funciones auxiliares
+check_csv_exists() {
+    [[ -f "$1" ]] && [[ -s "$1" ]]
+}
+
+get_repo_path() {
+    echo "${WORKING_REPO:-${REPO_URL:-}}"
+}
+
+report_violations() {
+    local -a violations=("${@:2}")
+    local success_msg=$1
+
+    if [[ ${#violations[@]} -gt 0 ]]; then
+        printf '%s\n' "${violations[@]}"
+        return 1
+    else
+        log "$success_msg"
+        return 0
+    fi
+}
+
+# Verificar política de ramas protegidas
+check_protected_branches() {
+    local violations=()
+    local repo_path=$(get_repo_path)
+
+    if [[ -z "$repo_path" ]] || [[ ! -d "$repo_path" ]]; then
+        log "No se puede acceder al repositorio"
+        return 0
+    fi
+
+    pushd "$repo_path" > /dev/null
+
+    local protected_branches=()
+    IFS=',' read -ra protected_branches <<< "${PROTECTED_BRANCHES:-main,develop}"
+
+    for branch_pattern in "${protected_branches[@]}"; do
+        branch_pattern=$(echo "$branch_pattern" | tr -d ' ')
+        [[ -n "$branch_pattern" ]] || continue
+
+        if [[ "$branch_pattern" == *"*"* ]]; then
+            continue
+        fi
+
+        if git rev-parse --verify "$branch_pattern" &>/dev/null; then
+            local force_push_count
+            force_push_count=$(git reflog show "$branch_pattern" 2>/dev/null | \
+                grep -c -E "forced-update|rebase|reset.*--hard" || echo "0")
+
+            if [[ $force_push_count -gt 0 ]]; then
+                violations+=("Force-push detectado en rama protegida '$branch_pattern' ($force_push_count eventos)")
+            fi
+        fi
+    done
+
+    if check_csv_exists "$PROJECT_ROOT/out/raw/remote-branch-policies.csv"; then
+        while IFS='|' read -r branch status details; do
+            [[ -n "$branch" ]] || continue
+            [[ "$branch" != "#"* ]] || continue
+
+            if [[ "$status" == "not_protected" ]]; then
+                violations+=("Rama '$branch' NO está protegida en el servidor (debería estarlo)")
+            fi
+        done < "$PROJECT_ROOT/out/raw/remote-branch-policies.csv"
+    fi
+
+    popd > /dev/null
+
+    if [[ ${#violations[@]} -gt 0 ]]; then
+        printf '%s\n' "${violations[@]}"
+        return 1
+    else
+        log "No se encontraron violaciones de ramas protegidas"
+        return 0
+    fi
+}
+
+# Verificar política de tags firmados
+check_tag_signatures() {
+    local violations=()
+
+    if [[ "${REQUIRE_SIGNED_TAGS:-false}" != "true" ]]; then
+        log "Firma de tags no requerida"
+        return 0
+    fi
+
+    if ! check_csv_exists "$PROJECT_ROOT/out/raw/tag-signatures.csv"; then
+        log "No se encontraron tags para verificar"
+        return 0
+    fi
+
+    while IFS='|' read -r tag_name signature_status tag_date tag_author; do
+        [[ -n "$tag_name" ]] || continue
+
+        if [[ "$signature_status" == "unsigned" ]]; then
+            violations+=("Tag NO firmado (requerido): '$tag_name' (fecha: $tag_date, autor: $tag_author)")
+        fi
+    done < "$PROJECT_ROOT/out/raw/tag-signatures.csv"
+
+    if [[ ${#violations[@]} -gt 0 ]]; then
+        printf '%s\n' "${violations[@]}"
+        return 1
+    else
+        log "Todos los tags están firmados correctamente"
+        return 0
+    fi
+}
+
+# Verificar nomenclatura semver en tags
+check_tag_naming() {
+    local violations=()
+
+    if ! check_csv_exists "$PROJECT_ROOT/out/raw/tags.csv"; then
+        log "No se encontraron tags para verificar"
+        return 0
+    fi
+
+    while IFS='|' read -r tag_name tag_date tag_author tag_email; do
+        [[ -n "$tag_name" ]] || continue
+
+        if [[ ! "$tag_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            violations+=("Tag NO sigue convención semver: '$tag_name' (esperado: vX.Y.Z)")
+        fi
+    done < "$PROJECT_ROOT/out/raw/tags.csv"
+
+    if [[ ${#violations[@]} -gt 0 ]]; then
+        printf '%s\n' "${violations[@]}"
+        return 1
+    else
+        log "Todos los tags siguen convención semver"
+        return 0
+    fi
+}
+
+
+# Detectar reescritura de historial (force push)
+check_history_rewriting() {
+    local violations=()
+
+    if ! check_csv_exists "$PROJECT_ROOT/out/raw/reflog.csv"; then
+        log "No se encontró reflog para verificar"
+        return 0
+    fi
+
+    local dangerous_operations=("forced-update" "rebase" "reset.*--hard" "commit --amend")
+
+    for operation in "${dangerous_operations[@]}"; do
+        local count
+        count=$(grep -c -E "$operation" "$PROJECT_ROOT/out/raw/reflog.csv" 2>/dev/null || echo "0")
+
+        if [[ $count -gt 0 ]]; then
+            violations+=("Operación peligrosa detectada: '$operation' ($count eventos en reflog)")
+        fi
+    done
+
+    if [[ ${#violations[@]} -gt 0 ]]; then
+        printf '%s\n' "${violations[@]}"
+        return 1
+    else
+        log "No se detectó reescritura de historial"
+        return 0
+    fi
+}
+
+# Función principal
+main() {
+    log "Ejecutando verificaciones pre-receive (servidor simulado)..."
+
+    mkdir -p "$PROJECT_ROOT/out/reports"
+
+    {
+        echo "# Violaciones detectadas por verificador pre-receive (servidor simulado)"
+        echo "# Fecha: $(date)"
+        echo ""
+    } > "$PROJECT_ROOT/out/reports/prereceive-violations.txt"
+
+    local exit_code=0
+    local violations_found=()
+
+    # Ejecutar verificaciones usando arrays
+    local check_names=("check_protected_branches" "check_tag_signatures" "check_tag_naming" "check_history_rewriting")
+    local check_labels=("Verificando ramas protegidas" "Verificando firmas de tags" "Verificando nomenclatura de tags" "Verificando reescritura de historial")
+
+    for i in "${!check_names[@]}"; do
+        log "${check_labels[$i]}..."
+        if ! violations=$("${check_names[$i]}" 2>&1); then
+            violations_found+=("$violations")
+            exit_code=1
+        fi
+    done
+
+    if [[ ${#violations_found[@]} -gt 0 ]]; then
+        printf '%s\n' "${violations_found[@]}" >> "$PROJECT_ROOT/out/reports/prereceive-violations.txt"
+    fi
+
+    if [[ $exit_code -eq 0 ]]; then
+        log "Todas las verificaciones pre-receive completadas exitosamente"
+    else
+        log "Se encontraron violaciones que el servidor rechazaría"
+    fi
+
+    return $exit_code
+}
+
+# Ejecutar si se invoca directamente
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
