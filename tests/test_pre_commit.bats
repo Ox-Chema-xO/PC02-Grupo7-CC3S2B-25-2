@@ -139,5 +139,5 @@ EOF
     # ASSERT: No debe haber violaciones
     [[ $status -eq 0 ]]
     [[ -f "$PROJECT_ROOT/out/reports/precommit-violations.txt" ]]
-    grep -q "✓ Sin violaciones" <<< "$output"
+    grep -q "Sin violaciones" <<< "$output"
 }
