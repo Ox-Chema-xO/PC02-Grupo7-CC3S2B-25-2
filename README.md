@@ -1,23 +1,26 @@
-# Sprint 1 – Auditoría de Políticas de Repositorios Git
+# PC02 – Sistema de Auditoría de Políticas Git con Validación Retrospectiva
 
 ## Descripción general
 
-Este proyecto implementa un **sistema de auditoría automatizada** para validar políticas de seguridad y buenas prácticas en repositorios Git. El enfoque es modular y extensible, permitiendo:
+Este proyecto implementa un **sistema de auditoría automatizada** para validar políticas de seguridad y buenas prácticas en repositorios Git mediante análisis retrospectivo del historial. El enfoque es modular y extensible, permitiendo:
 
 - Validación automática del entorno de ejecución.
-- Extracción exhaustiva de información del repositorio (ramas, commits, tags, firmas).
+- Extracción exhaustiva de información del repositorio (ramas, commits, tags, firmas, reflog).
 - Consulta de políticas de protección en plataformas remotas (GitHub).
-- Generación de reportes detallados de auditoría.
-- Detección de violaciones de políticas (preparado para expansión futura).
+- **Verificación retrospectiva de políticas mediante Git hooks**.
+- Simulación de políticas del servidor (pre-receive).
+- Generación de reportes detallados de auditoría y violaciones.
 
-El sistema sigue principios de **scripting robusto** con manejo de errores, logging estructurado y limpieza automática de recursos.
+El sistema sigue principios de **scripting robusto** con manejo de errores, logging estructurado, limpieza automática de recursos y **metodología TDD** (Test-Driven Development).
 
 ### Tecnologías y herramientas
 
-- **Bash scripting avanzado** (trap handlers, funciones modulares).
-- **Git** (análisis de historial, ramas, tags y firmas).
+- **Bash scripting avanzado** (trap handlers, funciones modulares, heredocs).
+- **Git** (análisis de historial, ramas, tags, firmas, reflog).
 - **GitHub API** (consulta de políticas de protección).
+- **Git Hooks** (pre-commit, commit-msg, pre-receive-sim).
 - **Herramientas Unix**: `jq`, `curl`, `grep`, `awk`, `sed`, `cut`, `sort`, `uniq`.
+- **Testing**: `bats` (Bash Automated Testing System).
 - **Automatización**: `Makefile`.
 
 ---
@@ -25,26 +28,46 @@ El sistema sigue principios de **scripting robusto** con manejo de errores, logg
 ## Estructura del proyecto
 
 ```text
-proyecto-auditoria-git/
-├── Makefile                          # Reglas de construcción y comandos
+PC02-Grupo7-CC3S2B-25-2/
+├── Makefile                          # Reglas de construcción y ejecución
 ├── README.md                         # Documentación del proyecto
-├── policy-auditor.sh                 # Script principal de orquestación
+├── .env.example                      # Plantilla de configuración
 ├── src/
-│   ├── utils.sh                     # Funciones de apoyo y logging
-│   ├── validate_environment.sh      # Validación de dependencias
-│   ├── prepare_workspace.sh         # Preparación de directorios
-│   ├── setup_repository.sh          # Configuración de acceso al repo
-│   ├── git-info-extractor.sh        # Extracción de información Git
-│   └── query-remote-policies.sh     # Consulta de políticas remotas
+│   ├── script_principal.sh           # Script orquestador principal
+│   ├── utils.sh                      # Funciones de apoyo y logging
+│   ├── validate_environment.sh       # Validación de dependencias
+│   ├── prepare_workspace.sh          # Preparación de directorios
+│   ├── setup_repository.sh           # Configuración de acceso al repo
+│   ├── git-info-extractor.sh         # Extracción de información Git
+│   ├── query-remote-policies.sh      # Consulta de políticas remotas
+│   └── policy-checker.sh             # Orquestador de hooks de políticas
+├── git-hooks/
+│   ├── pre-commit                    # Validación de archivos temporales, shebangs, sintaxis
+│   ├── commit-msg                    # Validación de mensajes de commit
+│   └── pre-receive-sim               # Simulación de políticas del servidor
+├── tests/
+│   ├── test_validate_environment.bats
+│   ├── test_script_principal.bats
+│   ├── test_git_info_extractor.bats
+│   ├── test_prepare_workspace.bats
+│   ├── test_query_remote_policies.bats
+│   ├── test_setup_repository.bats
+│   ├── test_pre_commit.bats
+│   ├── commit-msg-tests.bats
+│   └── test_pre_receive_sim.bats
 └── out/
-    ├── raw/                         # Datos extraídos en CSV/texto
-    │   ├── branches.txt
+    ├── raw/                          # Datos extraídos en CSV/texto
+    │   ├── branches.csv
     │   ├── commits.csv
     │   ├── commit-graph.txt
     │   ├── signed-tags.txt
     │   ├── reflog.txt
     │   └── remote-branch-policies.csv
-    └── audit-config.env             # Configuración de la auditoría
+    ├── reports/                      # Reportes de violaciones
+    │   ├── precommit-violations.txt
+    │   ├── commitmsg-violations.txt
+    │   └── prereceive-violations.txt
+    └── audit-config.env              # Configuración de la auditoría
 ```
 
 ---
@@ -109,7 +132,7 @@ export MIN_COMMIT_MESSAGE_LENGTH="10"                          # Opcional
 3. **Ejecutar auditoría completa**
 
    ```bash
-   ./policy-auditor.sh
+   ./script_principal.sh
    ```
 
 4. **Revisar resultados**
@@ -123,7 +146,7 @@ export MIN_COMMIT_MESSAGE_LENGTH="10"                          # Opcional
 
 ## Funcionalidades implementadas
 
-### policy-auditor.sh
+### script_principal.sh
 
 - Orquestación del flujo completo de auditoría.
 - Carga de módulos con manejo de errores.
@@ -135,12 +158,6 @@ export MIN_COMMIT_MESSAGE_LENGTH="10"                          # Opcional
 - Validación de comandos críticos del sistema.
 - Verificación de variables de entorno obligatorias.
 - Validación de formato de parámetros numéricos.
-
-### prepare_workspace.sh
-
-- Creación automática de estructura de directorios.
-- Generación de archivo de configuración de auditoría.
-- Limpieza de ejecuciones previas (opcional).
 
 ### setup_repository.sh
 
@@ -176,6 +193,145 @@ export MIN_COMMIT_MESSAGE_LENGTH="10"                          # Opcional
 - [x] Sistema de logging estructurado.
 - [x] Manejo robusto de errores con trap handlers.
 - [x] Generación de reportes de auditoría.
+- [x] Suite completa de pruebas BATS (20 tests en GREEN).
+- [x] Cobertura de tests: validación de entorno, extracción Git, workspace, políticas remotas.
+- [x] Estructura AAA en tests con setup/teardown automático.
+- [x] Validación de EXIT CODES (0, 1, 5) en todos los componentes.
+
+### Testing (TDD)
+
+Suite completa de pruebas BATS siguiendo metodología TDD:
+
+**Archivos de prueba:**
+- `tests/test_validate_environment.bats` (4 tests)
+- `tests/test_script_principal.bats` (2 tests)
+- `tests/test_git_info_extractor.bats` (3 tests)
+- `tests/test_prepare_workspace.bats` (4 tests)
+- `tests/test_query_remote_policies.bats` (4 tests)
+- `tests/test_setup_repository.bats` (3 tests)
+
+**Cobertura:**
+- Flujo completo del sistema de auditoría
+- Validación de herramientas requeridas
+- Extracción de ramas, commits, tags y reflog
+- Generación de archivos CSV y reportes
+- Manejo de errores y casos edge
+
+---
+
+## Bitácora del Sprint 2
+
+### Objetivo
+
+Implementar **validación de políticas mediante Git hooks** con verificaciones retrospectivas del historial y simulación de políticas de servidor.
+
+### Logros
+
+- **Git Hooks implementados:**
+  - `pre-commit`: Validación de archivos temporales, shebangs y sintaxis bash
+  - `commit-msg`: Validación de formato, longitud y prefijos de mensajes
+  - `pre-receive-sim`: Simulación de políticas del servidor (ramas protegidas, tags firmados, reescritura de historial)
+
+- **Script orquestador**: `policy-checker.sh` para ejecución centralizada de hooks
+- **Simplificación del Makefile**: Delegación de lógica a scripts bash
+- **Suite de pruebas BATS**: 12 tests nuevos siguiendo metodología TDD (RED → GREEN)
+- **Integración completa**: `script_principal.sh` llama a `policy-checker.sh`
+
+### Implementaciones clave
+
+#### Hook pre-commit (`git-hooks/pre-commit`)
+
+**Verificaciones retrospectivas:**
+- `check_temporary_files()`: Detecta archivos `.tmp`, `.log`, `.swp`, `.bak` en historial
+- `check_script_shebangs()`: Valida presencia de shebang `#!/bin/bash` en scripts `.sh`
+- `check_bash_syntax()`: Verifica sintaxis con `bash -n` en scripts del HEAD
+
+**Características:**
+- Análisis de commits usando `git diff-tree`
+- Generación de `precommit-violations.txt`
+- Configuración vía variables de entorno
+
+#### Hook commit-msg (`git-hooks/commit-msg`)
+
+**Validaciones de mensajes:**
+1. `check_commit_length()`: Longitud entre MIN_COMMIT_LENGTH (10) y MAX_COMMIT_LENGTH (72)
+2. `check_commit_format()`: Mayúscula inicial, sin punto final
+3. `check_required_prefix()`: Prefijos autorizados (feat, fix, docs, etc.) o conventional commits
+4. `check_forbidden_patterns()`: Detecta mensajes genéricos (wip, fix, test, update)
+
+**Características:**
+- Lectura de mensajes desde archivo `commits.csv`
+- Generación de `commitmsg-violations.txt`
+- Exit code 1 si hay violaciones
+
+#### Hook pre-receive-sim (`git-hooks/pre-receive-sim`)
+
+**Simulación de políticas del servidor:**
+1. `check_protected_branches()`: Detecta force-push en ramas protegidas
+2. `check_tag_signatures()`: Valida tags firmados cuando `REQUIRE_SIGNED_TAGS=true`
+3. `check_tag_naming()`: Valida nomenclatura semver (vX.Y.Z)
+4. `check_history_rewriting()`: Detecta operaciones peligrosas en reflog
+
+**Características:**
+- Análisis de `branches.csv`, `signed-tags.txt` y `reflog.txt`
+- Generación de `prereceive-violations.txt`
+- Exit code 1 si el servidor rechazaría el push
+
+#### Script orquestador (`src/policy-checker.sh`)
+
+**Funcionalidad:**
+- Ejecuta secuencialmente todos los hooks de verificación
+- Carga automática de variables desde `.env`
+- Validación de existencia de repositorio
+- Sistema de logging integrado
+- Manejo de exit codes correcto
+
+### Mejoras al sistema
+
+**Makefile actualizado:**
+- Target `tools`: Llama a `validate_environment.sh`
+- Target `build`: Llama a `prepare_workspace.sh`
+- Eliminación de lógica redundante
+
+**Integración completa:**
+- `script_principal.sh` → `check_policies()` → `policy-checker.sh` → hooks individuales
+
+### Testing (TDD - Sprint 2)
+
+12 tests nuevos siguiendo ciclo RED → GREEN:
+
+**Archivos de prueba:**
+- `tests/test_pre_commit.bats` (4 tests)
+- `tests/commit-msg-tests.bats` (4 tests)
+- `tests/test_pre_receive_sim.bats` (4 tests)
+
+**Metodología:**
+1. Fase RED: Tests definidos sin implementación
+2. Fase GREEN: Implementación de hooks
+
+**Cobertura:**
+- Detección de archivos temporales en historial
+- Validación de shebangs en scripts
+- Verificación de sintaxis bash
+- Validación de mensajes de commit (longitud, formato, prefijos)
+- Detección de mensajes genéricos prohibidos
+- Manejo de casos edge
+
+## Checklist de completitud Sprint 2
+
+- [x] Hook pre-commit implementado y probado
+- [x] Hook commit-msg implementado y probado
+- [x] Hook pre-receive-sim implementado y probado
+- [x] Script orquestador policy-checker.sh funcional
+- [x] Suite de pruebas BATS (12 tests en GREEN)
+- [x] Integración con script_principal.sh
+- [x] Simplificación del Makefile
+- [x] Documentación de hooks y validaciones
+- [x] Manejo de exit codes estandarizado
+- [x] Generación de reportes de violaciones
+
+---
 
 ## Videos de sprints
 - **Sprint 1**: https://drive.google.com/file/d/1fqYnsCZnfsgDeEsjv6wa4pGi-QOg0N5b/view?usp=sharing
+- **Sprint 2**: https://drive.google.com/file/d/1Zcv8O-uDKIOaHMF2lkUxyB15OZWzdv-E/view?usp=sharing
