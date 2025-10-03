@@ -23,7 +23,7 @@ DIST_PACK := $(DIST_DIR)/repository-analyzer.tar
 tools: ## Verifica que todas las herramientas existan
 	@$(SRC_DIR)/validate_environment.sh
 
-build: tools $(OUT_DIR) ## Construcción de artefactos
+build: tools ## Construcción de artefactos
 	@$(SRC_DIR)/prepare_workspace.sh
 	@chmod +x $(SRC_SCRIPTS) src/script_principal.sh 2>/dev/null || true
 
@@ -34,7 +34,7 @@ test: build ## Ejecución de pruebas
 run: build ## Ejecución del scaneo a repositorio
 	@$(SRC_DIR)/script_principal.sh
 
-pack: test $(DIST_DIR) ## Empaquetación del código
+pack: test ## Empaquetación del código
 	@echo "Comprimiendo contenido del proyecto"
 	@tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -cf $(DIST_PACK) $(SRC_DIR)
 	@gzip -n -9 -c $(DIST_PACK) > $(DIST_PACK).gz
