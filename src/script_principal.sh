@@ -117,14 +117,19 @@ EOF
     log "Reporte generado: out/reports/audit-summary.txt"
 }
 
-# Contar violaciones totales (stub básico)
+# Contar violaciones totales
 count_total_violations() {
-    # Por ahora retornamos 0 ya que no tenemos verificadores implementados
-    # En Sprint 3 se contarán las violaciones reales
-    echo "0"
+    local total_violations=0
+    local reports_dir="$PROJECT_ROOT/out/reports"
+
+    # Contar el total de líneas en todos los archivos de violaciones
+    # usando find -exec para manejar correctamente nombres con espacios
+    # Excluir líneas de comentarios (que empiezan con #) y líneas vacías
+    total_violations=$(find "$reports_dir" -name "*-violations.txt" -type f -exec cat {} + 2>/dev/null | grep -v '^#' | grep -v '^[[:space:]]*$' | wc -l)
+
+    echo "$total_violations"
 }
 
-# Ejecutar si se invoca directamente
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     main "$@"
 fi
