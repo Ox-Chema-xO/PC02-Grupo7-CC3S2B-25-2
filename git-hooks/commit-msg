@@ -2,7 +2,6 @@
 set -euo pipefail
 
 # Hook commit-msg - Verificador de mensajes de commits para repositorios auditados
-# Este script NO se ejecuta en el repositorio auditor
 # Analiza mensajes de commits del repositorio auditado para detectar violaciones
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -174,12 +173,10 @@ verify_commit_messages() {
 main() {
     log "Ejecutando verificaciones commit-msg en repositorio auditado..."
 
-    # Crear directorio de reportes si no existe
     mkdir -p "$PROJECT_ROOT/out/reports"
 
     local exit_code=0
 
-    # Ejecutar verificación
     verify_commit_messages || exit_code=1
 
     if [[ $exit_code -eq 0 ]]; then
@@ -191,7 +188,6 @@ main() {
     return $exit_code
 }
 
-# Ejecutar si se invoca directamente
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     main "$@"
 fi
