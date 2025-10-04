@@ -118,8 +118,8 @@ MAX_COMMIT_LENGTH="72"
 - `prereceive-violations.txt` - Violaciones servidor
 
 ### dist/ - Distribución
-- `repository-analyzer.tar.gz` - Paquete comprimido
-- `repository-analyzer.tar.gz.sha256` - Hash verificación
+- `repository-analyzer.tar` - Paquete comprimido
+- `repository-analyzer.tar.gz` - Hash verificación
 
 **Ver detalles completos:** [contrato-salidas.md](contrato-salidas.md)
 
@@ -219,8 +219,9 @@ curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/rate_limit
 
 ## Videos
 
-- **Sprint 1**: https://drive.google.com/file/d/1fqYnsCZnfsgDeEsjv6wa4pGi-QOg0N5b/view
-- **Sprint 2**: https://drive.google.com/file/d/1Zcv8O-uDKIOaHMF2lkUxyB15OZWzdv-E/view
+- **Sprint 1**: https://drive.google.com/file/d/1fqYnsCZnfsgDeEsjv6wa4pGi-QOg0N5b/view?usp=sharing
+- **Sprint 2**: https://drive.google.com/file/d/1Zcv8O-uDKIOaHMF2lkUxyB15OZWzdv-E/view?usp=sharing
+- **Sprint 3**: https://drive.google.com/file/d/17A4giCqg0BQUqFkHOPaWQttwHC4tnhCC/view?usp=sharing
 
 ---
 

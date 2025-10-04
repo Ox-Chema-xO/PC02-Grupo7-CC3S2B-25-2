@@ -28,8 +28,8 @@ out/
 └── processed/                    # Reservado para datos procesados
 
 dist/
-├── repository-analyzer.tar.gz    # Paquete de distribución
-└── repository-analyzer.tar.gz.sha256  # Hash SHA256 (pendiente)
+├── repository-analyzer.tar    # Paquete de distribución en tar
+└── repository-analyzer.tar.gz  # Paquete de distribución en tar.gz
 ```
 
 ---
@@ -83,8 +83,8 @@ dist/
 
 | Archivo | Formato | Contenido | Generación | Validación |
 |---------|---------|-----------|------------|------------|
+| `repository-analyzer.tar` | TAR | src/, tests/, git-hooks/, Makefile, README.md, .env.example | `make pack` | `tar -tzf dist/repository-analyzer.tar \| head` |
 | `repository-analyzer.tar.gz` | TAR.GZ | src/, tests/, git-hooks/, Makefile, README.md, .env.example | `make pack` | `tar -tzf dist/repository-analyzer.tar.gz \| head` |
-| `repository-analyzer.tar.gz.sha256` | Texto | Hash SHA256 del paquete | `sha256sum` | `sha256sum -c dist/repository-analyzer.tar.gz.sha256` |
 
 ---
 
