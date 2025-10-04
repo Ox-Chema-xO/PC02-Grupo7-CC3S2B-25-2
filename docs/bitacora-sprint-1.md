@@ -1,7 +1,6 @@
 # Bitácora Sprint 1
 
 **Equipo:** Grupo 7 - CC3S2B 2025-2
-**Duración:** 2 semanas
 
 ## Objetivo
 
