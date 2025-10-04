@@ -20,7 +20,7 @@ validate_environment() {
     log "Validando entorno..."
 
     # Herramientas requeridas
-    local required_tools=("git" "jq" "curl" "grep" "awk" "sed" "cut" "sort" "uniq")
+    local required_tools=("git" "jq" "curl" "grep" "awk" "sed" "cut" "sort" "uniq" "tar" "gzip")
     local missing_tools=()
 
     for tool in "${required_tools[@]}"; do
