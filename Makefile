@@ -12,11 +12,15 @@ SRC_DIR := src
 TESTS_DIR := tests
 OUT_DIR := out
 DIST_DIR := dist
+GIT_DIR := git-hooks
 
 SRC_SCRIPTS := $(wildcard $(SRC_DIR)/*.sh)
 TESTS_SCRIPTS := $(wildcard $(TESTS_DIR)/*.bats)
 
 DIST_PACK := $(DIST_DIR)/repository-analyzer.tar
+
+$(DIST_DIR):
+	mkdir -p $(DIST_DIR)
 
 .PHONY: tools build test run pack clean help
 
@@ -27,18 +31,20 @@ build: tools ## Construcción de artefactos
 	@$(SRC_DIR)/prepare_workspace.sh
 	@chmod +x $(SRC_SCRIPTS) src/script_principal.sh 2>/dev/null || true
 
-test: build ## Ejecución de pruebas
-	@cp .env .env.backup
+test: ## Ejecución de pruebas
 	@echo "Ejecutando suite de pruebas..."
-	@trap 'mv .env.backup .env' EXIT; \
+	@if [ -f .env ]; then \
+		cp .env .env.backup; \
+		trap 'mv .env.backup .env' EXIT; \
+	fi; \
 	bats $(TESTS_SCRIPTS)
 
 run: build ## Ejecución del scaneo a repositorio
 	@$(SRC_DIR)/script_principal.sh
 
-pack: test ## Empaquetación del código
+pack: tools test $(DIST_DIR) ## Empaquetación del código
 	@echo "Comprimiendo contenido del proyecto"
-	@tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -cf $(DIST_PACK) $(SRC_DIR)
+	@tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -cf $(DIST_PACK) $(SRC_DIR) $(GIT_DIR)
 	@gzip -n -9 -c $(DIST_PACK) > $(DIST_PACK).gz
 
 clean: ## Limpia artefactos creados

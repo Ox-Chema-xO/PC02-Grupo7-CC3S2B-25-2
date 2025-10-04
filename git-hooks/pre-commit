@@ -4,22 +4,17 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-log() {
-    echo "[pre-commit] $*" >&2
-}
-
-# Hardcodear de forma temporal un repo local para prueba
-export WORKING_REPO="${WORKING_REPO:-$HOME/Desktop/Computer-Science/DS/CC3S2_25-2_personal}"
+source "$PROJECT_ROOT/src/utils.sh"
 
 # Verificar archivos temporales
 check_temporary_files() {
-    log "Verificando archivos temporales en commits..."
+    log "[pre-commit] Verificando archivos temporales en commits..."
 
     local violations=()
     local commits_file="$PROJECT_ROOT/out/raw/commits.csv"
     local temp_patterns=('\.tmp$' '\.log$' '\.swp$' '\.bak$' '~$' '^#.*#$')
 
-    [[ -f "$commits_file" ]] || { log "commits.csv no encontrado"; return 0; }
+    [[ -f "$commits_file" ]] || { log "[pre-commit] commits.csv no encontrado"; return 0; }
 
     # Analizar commits
     while IFS='|' read -r hash author email date message; do
@@ -40,7 +35,7 @@ check_temporary_files() {
     # Reportar
     if [[ ${#violations[@]} -gt 0 ]]; then
         printf '%s\n' "${violations[@]}" > "$PROJECT_ROOT/out/reports/precommit-violations.txt"
-        log "Encontradas ${#violations[@]} violaciones"
+        log "[pre-commit] Encontradas ${#violations[@]} violaciones"
         return 1
     fi
 
@@ -49,7 +44,7 @@ check_temporary_files() {
 
 # Verificar shebangs en scripts
 check_script_shebangs() {
-    log "Verificando shebangs..."
+    log "[pre-commit] Verificando shebangs..."
 
     local violations=()
 
@@ -69,13 +64,13 @@ check_script_shebangs() {
     [[ ${#violations[@]} -eq 0 ]] && return 0
 
     printf '%s\n' "${violations[@]}" >> "$PROJECT_ROOT/out/reports/precommit-violations.txt"
-    log "Encontradas ${#violations[@]} violaciones de shebang"
+    log "[pre-commit] Encontradas ${#violations[@]} violaciones de shebang"
     return 1
 }
 
 # Verificar sintaxis bash
 check_bash_syntax() {
-    log "Verificando sintaxis bash..."
+    log "[pre-commit] Verificando sintaxis bash..."
 
     local violations=()
 
@@ -91,12 +86,12 @@ check_bash_syntax() {
     [[ ${#violations[@]} -eq 0 ]] && return 0
 
     printf '%s\n' "${violations[@]}" >> "$PROJECT_ROOT/out/reports/precommit-violations.txt"
-    log "Encontrados ${#violations[@]} errores de sintaxis"
+    log "[pre-commit] Encontrados ${#violations[@]} errores de sintaxis"
     return 1
 }
 
 main() {
-    log "Auditando políticas pre-commit en: $WORKING_REPO"
+    log "[pre-commit] Auditando políticas pre-commit en: $WORKING_REPO"
 
     mkdir -p "$PROJECT_ROOT/out/reports"
 
@@ -113,7 +108,7 @@ main() {
     check_script_shebangs || exit_code=1
     check_bash_syntax || exit_code=1
 
-    [[ $exit_code -eq 0 ]] && log "Sin violaciones" || log "Violaciones encontradas"
+    [[ $exit_code -eq 0 ]] && log "[pre-commit] Sin violaciones" || log "[pre-commit] Violaciones encontradas"
 
     return $exit_code
 }
