@@ -25,7 +25,7 @@ teardown() {
     [[ -f "$PROJECT_ROOT/.env" ]] && rm -f "$PROJECT_ROOT/.env" || true
 }
 
-# PRUEBA COBERTURA: Valida creación correcta de estructura de directorios. Verifica creación de out/{raw,processed,reports} y dist/
+# PRUEBA COBERTURA: Valida creación correcta de estructura de directorios. Verifica creación de out/{raw,reports} y dist/
 @test "prepare_workspace.sh crea correctamente la estructura de directorios" {
     # ARRANGE: Ya tenemos .env configurado en setup()
 
@@ -33,7 +33,6 @@ teardown() {
 
     [[ $status -eq 0 ]]
     [[ -d "$PROJECT_ROOT/out/raw" ]]
-    [[ -d "$PROJECT_ROOT/out/processed" ]]
     [[ -d "$PROJECT_ROOT/out/reports" ]]
     [[ -d "$PROJECT_ROOT/dist" ]]
     [[ "$output" =~ "Espacio de trabajo preparado" ]]

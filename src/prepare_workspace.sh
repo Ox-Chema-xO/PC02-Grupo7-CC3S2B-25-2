@@ -21,7 +21,7 @@ prepare_workspace() {
     cd "$PROJECT_ROOT"
 
     # Crear estructura de directorios
-    mkdir -p out/{raw,processed,reports}
+    mkdir -p out/{raw,reports}
     mkdir -p dist
 
     # Crear archivo de configuración temporal para la auditoría
@@ -36,7 +36,7 @@ MAX_COMMIT_LENGTH=${MAX_COMMIT_LENGTH:-72}
 EOF
 
     log "Espacio de trabajo preparado"
-    log "  - Directorios: out/{raw,processed,reports}, dist/"
+    log "  - Directorios: out/{raw,reports}, dist/"
     log "  - Configuración: out/audit-config.env"
 }
 
