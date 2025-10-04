@@ -10,19 +10,8 @@ if [[ -f "$PROJECT_ROOT/.env" ]]; then
     source "$PROJECT_ROOT/.env"
 fi
 
-WORKING_REPO="${1:-${WORKING_REPO:-${REPO_URL:-}}}"
-
-if [[ -z "$WORKING_REPO" ]]; then
-    log "ERROR: Debe especificar el repositorio a analizar"
-    log "Uso: $0 <ruta_del_repositorio>"
-    log "O configurar REPO_URL en el archivo .env"
-    exit 1
-fi
-
-if [[ ! -d "$WORKING_REPO" ]]; then
-    log "ERROR: Repositorio no existe: $WORKING_REPO"
-    exit 1
-fi
+# Recibir repo del script_principal.sh
+WORKING_REPO="$1"
 
 extract_repository_info() {
     log "Extrayendo información del repositorio..."
