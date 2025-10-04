@@ -94,7 +94,7 @@ check_valid_prefixes() {
 
     local has_valid_prefix=false
     for prefix in "${valid_prefixes[@]}"; do
-        if [[ "$message" =~ ^{$prefix}[[:space:]] ]] || [[ "$message" =~ ^$prefix ]]; then
+        if [[ "$message" =~ ^"$prefix"[[:space:]] ]] || [[ "$message" =~ ^"$prefix" ]]; then
             has_valid_prefix=true
             break
         fi
